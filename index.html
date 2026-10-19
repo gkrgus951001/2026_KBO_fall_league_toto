@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>가을야구 베팅 장부</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Oswald:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EDF1; --surface:#F7F9FB; --ink:#16212B; --muted:#5B6873; --line:#C9D2DA;
+  --board:#14231C; --board-ink:#F4E9C8; --board-dim:#8FA394; --bulb:#F2C230;
+  --win:#1E7F47; --lose:#C0392B; --void:#6B7A86; --pend:#A27B12;
+  --focus:#2A6FDB;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11171C; --surface:#1A2228; --ink:#E6ECF1; --muted:#97A4AE; --line:#2E3A43;
+    --board:#0B1612; --board-ink:#F4E9C8; --board-dim:#6F8576; --bulb:#F2C230;
+    --win:#4CC27E; --lose:#F06A5B; --void:#8E9BA6; --pend:#E0B43C; --focus:#7AA7FF;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11171C; --surface:#1A2228; --ink:#E6ECF1; --muted:#97A4AE; --line:#2E3A43;
+  --board:#0B1612; --board-ink:#F4E9C8; --board-dim:#6F8576; --bulb:#F2C230;
+  --win:#4CC27E; --lose:#F06A5B; --void:#8E9BA6; --pend:#E0B43C; --focus:#7AA7FF;
+  color-scheme: dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:16px;line-height:1.55}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.15rem;font-weight:700;margin:4px 0 14px;letter-spacing:-.01em}
+h2{font-size:1rem;font-weight:700;margin:0 0 10px}
+.num{font-variant-numeric:tabular-nums}
+
+/* Scoreboard */
+.board{background:var(--board);color:var(--board-ink);border-radius:6px;padding:18px 18px 14px;border:3px solid #2C3D33;position:relative}
+.board-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.board-label{color:var(--board-dim);font-size:.85rem}
+.net{font-family:Oswald,"IBM Plex Sans KR",sans-serif;font-weight:600;font-size:clamp(2.6rem,9vw,4.2rem);line-height:1.05;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+.net.pos{color:#7BE3A1}.net.neg{color:#FF8A7A}
+.line{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px;border-top:1px solid #2C3D33}
+.cell{padding:10px 8px 2px;border-right:1px solid #2C3D33}
+.cell:last-child{border-right:0}
+.cell b{display:block;font-family:Oswald,"IBM Plex Sans KR",sans-serif;font-weight:500;font-size:1.25rem;font-variant-numeric:tabular-nums;color:var(--board-ink)}
+.cell span{font-size:.78rem;color:var(--board-dim)}
+.budget{margin-top:12px;font-size:.85rem;color:var(--board-dim)}
+.meter{height:6px;background:#22352A;border-radius:3px;margin-top:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--bulb);width:0}
+.meter.over i{background:#FF8A7A}
+@media (max-width:520px){.line{grid-template-columns:repeat(2,minmax(0,1fr))}.cell:nth-child(2){border-right:0}.cell:nth-child(n+3){border-top:1px solid #2C3D33}}
+
+section{margin-top:22px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
+
+/* Form */
+form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted)}
+.c2{grid-column:span 2}.c3{grid-column:span 3}.c6{grid-column:span 6}
+input,select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0;width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.preview{grid-column:span 4;align-self:end;font-size:.88rem;color:var(--muted);padding-bottom:9px}
+button{font:inherit;cursor:pointer;border-radius:6px}
+.primary{grid-column:span 2;background:var(--ink);color:var(--bg);border:0;padding:10px 12px;font-weight:700}
+@media (max-width:620px){form{grid-template-columns:repeat(2,minmax(0,1fr))}.c2,.c3{grid-column:span 1}.c6,.preview,.primary{grid-column:span 2}.preview{padding-bottom:0}}
+
+/* Heatmap */
+:root{--future:#CDD4DA}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--future:#3A454E}}
+:root[data-theme="dark"]{--future:#3A454E}
+.heat{display:grid;gap:6px}
+.hrow{display:grid;grid-template-columns:44px repeat(7,minmax(0,52px));gap:6px;align-items:center}
+.hlab{font-size:.8rem;color:var(--muted);font-weight:500;white-space:nowrap}
+.sq{aspect-ratio:1;border-radius:6px;border:1px solid transparent;padding:0;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font:inherit;line-height:1.1;color:#fff;cursor:pointer;min-width:0;background:transparent}
+.sq b{font-size:.92rem;font-weight:700}
+.sq small{font-size:.68rem;opacity:.9;font-variant-numeric:tabular-nums}
+.sq.win{background:var(--win)}.sq.lose{background:var(--lose)}.sq.pend{background:var(--pend)}.sq.void{background:var(--void)}
+.sq.future{background:var(--future);color:var(--ink)}
+.sq.maybe{background:transparent;border:1.5px dashed var(--future);color:var(--muted)}
+.sq.skip{border-color:var(--line);color:var(--muted)}
+.sq.nothold{border:1px dashed var(--line);color:var(--muted);opacity:.5}
+.sq.nothold b{text-decoration:line-through}
+.sq.blank{visibility:hidden}
+.sq[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px}
+.hdetail{margin:12px 0 0;font-size:.9rem;min-height:1.5em;overflow-wrap:anywhere}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:.78rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block;box-sizing:border-box}
+@media (max-width:440px){.sq small{display:none}.hrow{grid-template-columns:36px repeat(7,minmax(0,1fr))}}
+.empty{color:var(--muted);font-size:.9rem;margin:4px 0}
+
+/* List */
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:transparent;border:1px solid var(--line);color:var(--muted);padding:4px 10px;font-size:.82rem;border-radius:999px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+ul.bets{list-style:none;margin:0;padding:0}
+.bet{display:grid;grid-template-columns:4px 1fr auto;gap:12px;padding:12px 0;border-top:1px solid var(--line);align-items:start}
+.bet:first-child{border-top:0}
+.stripe{align-self:stretch;border-radius:2px;background:var(--pend)}
+.bet[data-r="win"] .stripe{background:var(--win)}
+.bet[data-r="lose"] .stripe{background:var(--lose)}
+.bet[data-r="void"] .stripe{background:var(--void)}
+.what{font-weight:500;word-break:keep-all;overflow-wrap:anywhere}
+.meta{font-size:.82rem;color:var(--muted)}
+.pl{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pl.pos{color:var(--win)}.pl.neg{color:var(--lose)}.pl.zero{color:var(--muted)}
+.res{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.res button{background:transparent;border:1px solid var(--line);color:var(--muted);padding:3px 9px;font-size:.8rem}
+.res button[aria-pressed="true"][data-v="win"]{background:var(--win);border-color:var(--win);color:#fff}
+.res button[aria-pressed="true"][data-v="lose"]{background:var(--lose);border-color:var(--lose);color:#fff}
+.res button[aria-pressed="true"][data-v="void"]{background:var(--void);border-color:var(--void);color:#fff}
+.res button[aria-pressed="true"][data-v="pending"]{background:var(--pend);border-color:var(--pend);color:#fff}
+.del{background:transparent;border:0;color:var(--muted);font-size:.8rem;padding:3px 4px;margin-left:auto;text-decoration:underline}
+.status{font-size:.8rem;color:var(--muted);margin-top:8px}
+.settings{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.settings label{flex:1 1 180px}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);padding:8px 12px}
+.readonly .owner-only{display:none!important}
+.ro-note{font-size:.88rem;color:var(--muted);margin:-6px 0 14px}
+@media (prefers-reduced-motion:no-preference){.meter i{transition:width .4s ease}}
+</style>
+</head>
+<body class="readonly">
+<div class="wrap">
+  <h1>가을야구 베팅 장부</h1>
+  <p class="ro-note" id="roNote">마지막 업데이트: <span id="updated">–</span></p>
+
+  <div class="board" aria-live="polite">
+    <div class="board-top">
+      <span class="board-label">순손익 (결과 나온 것만)</span>
+      <span class="board-label" id="countLabel">기록 0건</span>
+    </div>
+    <div class="net" id="net">0원</div>
+    <div class="line">
+      <div class="cell"><b id="sStake">0</b><span>총 구매액</span></div>
+      <div class="cell"><b id="sReturn">0</b><span>총 적중금</span></div>
+      <div class="cell"><b id="sRoi">–</b><span>회수율</span></div>
+      <div class="cell"><b id="sHit">–</b><span>적중률</span></div>
+    </div>
+    <div class="budget owner-only" id="budgetBox" hidden>
+      <div id="budgetText"></div>
+      <div class="meter" id="meter"><i></i></div>
+    </div>
+  </div>
+
+  <section class="panel owner-only">
+    <h2>구매 기록 추가</h2>
+    <form id="form" autocomplete="off">
+      <label class="c2">날짜<input type="date" id="fDate" required></label>
+      <label class="c2">시리즈
+        <select id="fRound">
+          <option>와일드카드</option><option>준플레이오프</option><option>플레이오프</option><option>한국시리즈</option><option>기타</option>
+        </select>
+      </label>
+      <label class="c2">차전<input type="number" id="fGame" min="1" max="7" inputmode="numeric" placeholder="예: 1"></label>
+      <label class="c6">내용<input type="text" id="fPick" maxlength="120" placeholder="예: 두산 승 / 2폴더 조합" required></label>
+      <label class="c3">구매 금액 (원)<input type="number" id="fStake" min="100" step="100" inputmode="numeric" placeholder="예: 10000" required></label>
+      <label class="c3">배당률<input type="number" id="fOdds" min="1" step="0.01" inputmode="decimal" placeholder="예: 1.85" required></label>
+      <div class="preview num" id="preview">적중 시 예상 수령액이 여기에 표시됩니다.</div>
+      <button class="primary" type="submit">기록 추가</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>경기별 적중 현황</h2>
+    <div class="heat" id="heat" role="group" aria-label="가을야구 경기별 적중 현황"></div>
+    <p class="hdetail" id="heatDetail">칸을 누르면 경기와 베팅 내용이 보입니다.</p>
+    <div class="legend">
+      <span><i style="background:var(--win)"></i>적중</span>
+      <span><i style="background:var(--lose)"></i>미적중</span>
+      <span><i style="background:var(--pend)"></i>결과 대기</span>
+      <span><i style="border:1px solid var(--line)"></i>안 건 경기</span>
+      <span><i style="background:var(--future)"></i>앞으로 열릴 경기</span>
+      <span><i style="border:1.5px dashed var(--future)"></i>필요 시 열림</span>
+      <span><i style="border:1px dashed var(--line);opacity:.5"></i>열리지 않음</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <h2 style="margin:0">기록</h2>
+      <div class="filters" role="group" aria-label="결과별 보기">
+        <button class="chip" data-f="all" aria-pressed="true">전체</button>
+        <button class="chip" data-f="pending" aria-pressed="false">대기</button>
+        <button class="chip" data-f="win" aria-pressed="false">적중</button>
+        <button class="chip" data-f="lose" aria-pressed="false">미적중</button>
+      </div>
+    </div>
+    <ul class="bets" id="list"></ul>
+    <p class="empty" id="emptyList">아직 기록이 없습니다. 위에서 첫 구매를 추가해 보세요.</p>
+  </section>
+
+  <section class="panel owner-only">
+    <h2>예산</h2>
+    <div class="settings">
+      <label>이번 가을야구 예산 (원, 비워두면 표시 안 함)<input type="number" id="budget" min="0" step="1000" inputmode="numeric" placeholder="예: 100000"></label>
+      <button class="ghost" id="saveBudget" type="button">예산 저장</button>
+    </div>
+    <p class="status" id="status">저장소 연결 중…</p>
+  </section>
+</div>
+
+<script type="application/json" id="ledger-data">
+{
+ "updated": "2026-10-19",
+ "schedule": [
+  {"round": "와일드카드", "short": "WC", "games": [
+   {"n": 1, "date": "10/14", "state": "played"},
+   {"n": 2, "date": "10/15", "state": "notheld"}]},
+  {"round": "준플레이오프", "short": "준PO", "games": [
+   {"n": 1, "date": "10/17", "state": "played"},
+   {"n": 2, "date": "10/18", "state": "played"},
+   {"n": 3, "date": "10/20", "state": "upcoming"},
+   {"n": 4, "date": "10/21", "state": "conditional"},
+   {"n": 5, "date": "10/23", "state": "conditional"}]},
+  {"round": "플레이오프", "short": "PO", "games": [
+   {"n": 1, "date": "10/25", "state": "upcoming"},
+   {"n": 2, "date": "", "state": "upcoming"},
+   {"n": 3, "date": "", "state": "upcoming"},
+   {"n": 4, "date": "", "state": "conditional"},
+   {"n": 5, "date": "", "state": "conditional"}]},
+  {"round": "한국시리즈", "short": "KS", "games": [
+   {"n": 1, "date": "11/2", "state": "upcoming"},
+   {"n": 2, "date": "", "state": "upcoming"},
+   {"n": 3, "date": "", "state": "upcoming"},
+   {"n": 4, "date": "", "state": "upcoming"},
+   {"n": 5, "date": "", "state": "conditional"},
+   {"n": 6, "date": "", "state": "conditional"},
+   {"n": 7, "date": "", "state": "conditional"}]}
+ ],
+ "bets": [
+  {
+   "id": "wc1-lg",
+   "created": 1,
+   "date": "2026-10-14",
+   "round": "와일드카드",
+   "game": 1,
+   "pick": "LG 트윈스 승 (vs 두산, 4:1)",
+   "stake": 100000,
+   "odds": 2.15,
+   "result": "win"
+  },
+  {
+   "id": "spo1-kia",
+   "created": 2,
+   "date": "2026-10-17",
+   "round": "준플레이오프",
+   "game": 1,
+   "pick": "KIA 타이거즈 승 (vs LG, 5:1)",
+   "stake": 100000,
+   "odds": 1.62,
+   "result": "win"
+  },
+  {
+   "id": "spo2-match",
+   "created": 3,
+   "date": "2026-10-18",
+   "round": "준플레이오프",
+   "game": 2,
+   "pick": "야구토토 매치: KIA 홈런 무·5~6점 / LG 홈런 무·3~4점",
+   "stake": 100000,
+   "odds": 18.9,
+   "result": "lose"
+  },
+  {
+   "id": "spo3-lg",
+   "created": 4,
+   "date": "2026-10-20",
+   "round": "준플레이오프",
+   "game": 3,
+   "pick": "LG 트윈스 승 (홈, vs KIA) · 124회차",
+   "stake": 100000,
+   "odds": 1.7,
+   "result": "pending"
+  }
+ ]
+}
+</script>
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const won = n => (n<0?'−':'') + Math.abs(Math.round(n)).toLocaleString('ko-KR') + '원';
+  const signed = n => (n>0?'+':'') + won(n);
+  let state = { bets: [], budget: 0 };
+  let filter = 'all';
+  let store = null; // {save(state)}
+  const LS_KEY = 'kbo-bet-ledger-v1';
+
+  // ---------- calc ----------
+  function pl(b){
+    if(b.result==='win') return b.stake*b.odds - b.stake;
+    if(b.result==='lose') return -b.stake;
+    return 0;
+  }
+  function returned(b){
+    if(b.result==='win') return b.stake*b.odds;
+    if(b.result==='void') return b.stake;
+    return 0;
+  }
+  function sorted(){
+    return [...state.bets].sort((a,b)=> (a.date===b.date ? a.created-b.created : (a.date<b.date?-1:1)));
+  }
+
+  // ---------- render ----------
+  function render(){
+    const settled = state.bets.filter(b=>b.result!=='pending');
+    const decided = settled.filter(b=>b.result!=='void');
+    const stake = settled.reduce((s,b)=>s+b.stake,0);
+    const ret = settled.reduce((s,b)=>s+returned(b),0);
+    const net = ret - stake;
+    const wins = decided.filter(b=>b.result==='win').length;
+    const pendingStake = state.bets.filter(b=>b.result==='pending').reduce((s,b)=>s+b.stake,0);
+
+    const netEl = $('#net');
+    netEl.textContent = signed(net);
+    netEl.className = 'net ' + (net>0?'pos':net<0?'neg':'');
+    $('#sStake').textContent = stake.toLocaleString('ko-KR');
+    $('#sReturn').textContent = Math.round(ret).toLocaleString('ko-KR');
+    $('#sRoi').textContent = stake? Math.round(ret/stake*100)+'%' : '–';
+    $('#sHit').textContent = decided.length? `${wins}/${decided.length}` : '–';
+    $('#countLabel').textContent = `기록 ${state.bets.length}건` + (pendingStake? ` · 대기 ${won(pendingStake)}`:'');
+
+    const totalStake = state.bets.reduce((s,b)=>s+b.stake,0);
+    if(state.budget>0){
+      $('#budgetBox').hidden = false;
+      const pct = Math.min(100, totalStake/state.budget*100);
+      const left = state.budget - totalStake;
+      $('#budgetText').textContent = left>=0
+        ? `예산 ${won(state.budget)} 중 ${won(totalStake)} 사용, ${won(left)} 남음`
+        : `예산 ${won(state.budget)}을 ${won(-left)} 넘었습니다`;
+      $('#meter').classList.toggle('over', left<0);
+      $('#meter i').style.width = pct+'%';
+    } else $('#budgetBox').hidden = true;
+    if(document.activeElement !== $('#budget')) $('#budget').value = state.budget || '';
+
+    renderHeatmap();
+    renderList();
+  }
+
+  let schedule = [], selectedKey = null;
+  const stateLabel = {played:'안 건 경기', notheld:'열리지 않음', upcoming:'앞으로 열릴 경기', conditional:'시리즈가 안 끝났을 때만 열림'};
+  const resLabel = {pending:'결과 대기', win:'적중', lose:'미적중', void:'적특'};
+  function cellInfo(s, g){
+    const bets = state.bets.filter(b=>b.round===s.round && b.game===g.n);
+    let cls;
+    if(bets.length){
+      if(bets.some(b=>b.result==='pending')) cls='pend';
+      else { const p=bets.reduce((a,b)=>a+pl(b),0); cls = p>0?'win':p<0?'lose':'void'; }
+    } else cls = {played:'skip', notheld:'nothold', upcoming:'future', conditional:'maybe'}[g.state] || 'future';
+    return {bets, cls};
+  }
+  function describe(s, g, info){
+    const head = `${s.short} ${g.n}차전${g.date? ' · '+g.date:''}`;
+    if(!info.bets.length) return `${head} · ${stateLabel[g.state]||''}`;
+    return head + ' · ' + info.bets.map(b=>{
+      const r = b.result==='pending' ? `적중 시 ${signed(b.stake*b.odds-b.stake)}` : signed(pl(b));
+      return `${b.pick} · ${won(b.stake)} × ${b.odds.toFixed(2)} · ${resLabel[b.result]} (${r})`;
+    }).join(' / ');
+  }
+  function renderHeatmap(){
+    const box = $('#heat'); box.innerHTML='';
+    for(const s of schedule){
+      const row=document.createElement('div'); row.className='hrow';
+      const lab=document.createElement('div'); lab.className='hlab'; lab.textContent=s.short; row.appendChild(lab);
+      for(let i=0;i<7;i++){
+        const g=s.games[i];
+        if(!g){ const e=document.createElement('div'); e.className='sq blank'; row.appendChild(e); continue; }
+        const info=cellInfo(s,g), key=s.short+'-'+g.n;
+        const btn=document.createElement('button');
+        btn.type='button'; btn.className='sq '+info.cls;
+        btn.setAttribute('aria-pressed', selectedKey===key);
+        btn.setAttribute('aria-label', describe(s,g,info));
+        btn.innerHTML = `<b>${g.n}</b>${g.date?`<small>${g.date}</small>`:''}`;
+        btn.addEventListener('click',()=>{
+          selectedKey = selectedKey===key ? null : key;
+          box.querySelectorAll('.sq[aria-pressed]').forEach(x=>x.setAttribute('aria-pressed','false'));
+          if(selectedKey){ btn.setAttribute('aria-pressed','true'); $('#heatDetail').textContent = describe(s,g,info); }
+          else $('#heatDetail').textContent = '칸을 누르면 경기와 베팅 내용이 보입니다.';
+        });
+        row.appendChild(btn);
+      }
+      box.appendChild(row);
+    }
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function renderList(){
+    const list=$('#list'); list.innerHTML='';
+    const items = sorted().reverse().filter(b=> filter==='all' || b.result===filter);
+    $('#emptyList').hidden = state.bets.length>0;
+    if(state.bets.length && !items.length){ list.innerHTML='<li class="empty">이 결과에 해당하는 기록이 없습니다.</li>'; return; }
+    const labels={pending:'대기',win:'적중',lose:'미적중',void:'적특'};
+    for(const b of items){
+      const li=document.createElement('li'); li.className='bet'; li.dataset.r=b.result;
+      const p=pl(b);
+      const plText = b.result==='pending' ? `적중 시 ${signed(b.stake*b.odds-b.stake)}` : b.result==='void' ? '환불' : signed(p);
+      const plCls = b.result==='pending'||b.result==='void' ? 'zero' : (p>0?'pos':'neg');
+      const md = b.date ? b.date.slice(5).replace('-','/') : '';
+      li.innerHTML = `<div class="stripe"></div>
+        <div>
+          <div class="what"></div>
+          <div class="meta num">${md} · ${escapeHtml(b.round)}${b.game? ' '+b.game+'차전':''} · ${won(b.stake)} × ${b.odds.toFixed(2)}</div>
+          <div class="res owner-only" role="group" aria-label="결과 선택">
+            ${['pending','win','lose','void'].map(v=>`<button type="button" data-v="${v}" aria-pressed="${b.result===v}">${labels[v]}</button>`).join('')}
+            <button type="button" class="del">삭제</button>
+          </div>
+        </div>
+        <div class="pl ${plCls}">${plText}</div>`;
+      li.querySelector('.what').textContent = b.pick;
+      li.querySelectorAll('.res button[data-v]').forEach(btn=>btn.addEventListener('click',()=>{
+        b.result=btn.dataset.v; commit();
+      }));
+      li.querySelector('.del').addEventListener('click',()=>{
+        if(confirm(`"${b.pick}" 기록을 삭제할까요?`)){ state.bets=state.bets.filter(x=>x.id!==b.id); commit(); }
+      });
+      list.appendChild(li);
+    }
+  }
+
+  // ---------- form ----------
+  const today = new Date(); today.setMinutes(today.getMinutes()-today.getTimezoneOffset());
+  $('#fDate').value = today.toISOString().slice(0,10);
+  function updatePreview(){
+    const s=+$('#fStake').value, o=+$('#fOdds').value;
+    $('#preview').textContent = (s>0&&o>=1) ? `적중 시 ${won(s*o)} 수령 (순이익 ${signed(s*o-s)})` : '적중 시 예상 수령액이 여기에 표시됩니다.';
+  }
+  $('#fStake').addEventListener('input',updatePreview);
+  $('#fOdds').addEventListener('input',updatePreview);
+  $('#form').addEventListener('submit',e=>{
+    e.preventDefault();
+    const stake=Math.round(+$('#fStake').value), odds=+$('#fOdds').value;
+    if(!(stake>0) || !(odds>=1)) return;
+    state.bets.push({
+      id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      created: Date.now(),
+      date: $('#fDate').value,
+      round: $('#fRound').value,
+      game: +$('#fGame').value || null,
+      pick: $('#fPick').value.trim(),
+      stake, odds: Math.round(odds*100)/100,
+      result: 'pending'
+    });
+    $('#fPick').value=''; $('#fStake').value=''; $('#fOdds').value=''; $('#fGame').value='';
+    updatePreview(); commit(); $('#fPick').focus();
+  });
+  document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
+    filter=c.dataset.f;
+    document.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed', x===c));
+    renderList();
+  }));
+  $('#saveBudget').addEventListener('click',()=>{
+    state.budget = Math.max(0, Math.round(+$('#budget').value||0)); commit();
+  });
+
+  // ---------- data ----------
+  function commit(){ render(); }
+  function init(){
+    try{
+      const d = JSON.parse(document.getElementById('ledger-data').textContent);
+      if(d && Array.isArray(d.bets)) state = { bets: d.bets, budget: 0 };
+      if(d && Array.isArray(d.schedule)) schedule = d.schedule;
+      if(d && d.updated){ const [y,m,dd]=d.updated.split('-'); $('#updated').textContent = `${+m}월 ${+dd}일`; }
+    }catch(e){}
+    render();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
